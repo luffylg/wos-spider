@@ -43,6 +43,18 @@ class SpiderMain(object):
             'ss_numDefaultGeneralSearchFields':1,
             'rs_sort_by':'PY.D;LD.D;SO.A;VL.D;PG.A;AU.A'
         }
+        self.form_data2={
+            'product':'WOS',
+            'prev_search_mode':'CombineSearches',
+            'search_mode':'CombineSearches',
+            'SID':sid,
+            'action':'remove',
+            'goToPageLoc':'SearchHistoryTableBanner',
+            'currUrl':'https://apps.webofknowledge.com/WOS_CombineSearches_input.do?SID='+sid+'&product=WOS&search_mode=CombineSearches',
+            'x':48,
+            'y':9,
+            'dSet':1
+		}
 
     def craw(self, root_url):
         try:
@@ -73,8 +85,13 @@ class SpiderMain(object):
             a_and_r=0
             refer_num=0
             flag=1
-            error=e
+            error=str(e)
         return a_and_r, refer_num,flag,error
+
+    def delete_history(self):
+        murl='https://apps.webofknowledge.com/WOS_CombineSearches.do'
+        s = requests.Session()
+        s.post(murl,data=self.form_data2,headers=self.hearders)
 
 if __name__=="__main__":
     root_url = 'https://apps.webofknowledge.com/WOS_GeneralSearch.do'
@@ -89,7 +106,7 @@ if __name__=="__main__":
     for i in range(1,nrows):
         csv=open('res.csv','a')
         fail=open('fail.txt','a')
-        kanming=kanming=table.cell(i,2).value
+        kanming=table.cell(i,2).value
         obj_spider = SpiderMain(sid,kanming)
         ar,ref,fl,er=obj_spider.craw(root_url)
         csv.write(str(i+1)+","+kanming+','+str(ar)+','+str(ref)+'\n')
@@ -97,6 +114,7 @@ if __name__=="__main__":
             print('cell'+str(i+1)+' '+kanming+' finished')
         else:
             print('cell'+str(i+1)+' '+kanming+' failed'+' '+er)
-            fail.write(str(i+1)+' '+kanming+' failed'+'\n')
+            fail.write(str(i+1)+' '+kanming+' failed'+' '+er+'\n')
         csv.close()
         fail.close()
+        obj_spider.delete_history()
