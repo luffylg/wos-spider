@@ -93,10 +93,16 @@ class SpiderMain(object):
         s = requests.Session()
         s.post(murl,data=self.form_data2,headers=self.hearders)
 
+
 if __name__=="__main__":
     root_url = 'https://apps.webofknowledge.com/WOS_GeneralSearch.do'
-    sid='W1OZtZW2eSwnTmvSLev'
-    data = xlrd.open_workbook('2015排序.xlsx')
+    #sid='W1OZtZW2eSwnTmvSLev'
+
+    root='http://www.webofknowledge.com/'
+    s=requests.get(root)
+    sid=re.findall(r'SID=\w+&',s.url)[0].replace('SID=','').replace('&','')
+
+    data = xlrd.open_workbook('2015排序2.xlsx')
     table = data.sheets()[0]
     nrows = table.nrows
     ncols = table.ncols
@@ -104,6 +110,10 @@ if __name__=="__main__":
     xf = 0
 
     for i in range(1,nrows):
+        if i%100==0:
+            # 每一百次更换sid
+            s=requests.get(root)
+            sid=re.findall(r'SID=\w+&',s.url)[0].replace('SID=','').replace('&','')
         csv=open('res.csv','a')
         fail=open('fail.txt','a')
         kanming=table.cell(i,2).value
@@ -117,4 +127,5 @@ if __name__=="__main__":
             fail.write(str(i+1)+' '+kanming+' failed'+' '+er+'\n')
         csv.close()
         fail.close()
-        obj_spider.delete_history()
+        #obj_spider.delete_history()
+        # 更换sid后不必删除历史记录
