@@ -81,11 +81,37 @@ class SpiderMain(object):
             flag=0
             error='no error'
         except Exception as e:
-            print(e)
-            a_and_r=0
-            refer_num=0
-            flag=1
-            error=str(e)
+            # 出现错误，再次try，以提高结果成功率
+            try:
+                s = requests.Session()
+                r = s.post(root_url,data=self.form_data,headers=self.hearders)
+                soup = BeautifulSoup(r.text, 'html.parser')
+                result_article=soup.find_all('input', value="DocumentType_ARTICLE")
+                if result_article==[]:
+                    article_num=0
+                else:
+                    article_num=int(re.findall(r"\d+",result_article[0].text.replace(',',''))[0])
+                result_review=soup.find_all('input', value="DocumentType_REVIEW")
+                if result_review==[]:
+                    review_num=0
+                else:
+                    review_num=int(re.findall(r"\d+",result_review[0].text.replace(',',''))[0])
+                a_and_r=article_num+review_num
+                report_link=soup.find('a', alt="View Citation Report")
+                true_link="https://apps.webofknowledge.com"+report_link['href']
+                r2=s.get(true_link)
+                soup2= BeautifulSoup(r2.text, 'html.parser')
+                refer=soup2.find_all('span',id="CR_HEADER_3")
+                refer_num=int(re.findall(r"\d+",refer[0].text)[0])
+                flag=0
+                error='no error'
+
+            except Exception as e:
+                print(e)
+                a_and_r=0
+                refer_num=0
+                flag=1
+                error=str(e)
         return a_and_r, refer_num,flag,error
 
     def delete_history(self):
@@ -102,7 +128,7 @@ if __name__=="__main__":
     s=requests.get(root)
     sid=re.findall(r'SID=\w+&',s.url)[0].replace('SID=','').replace('&','')
 
-    data = xlrd.open_workbook('2015排序2.xlsx')
+    data = xlrd.open_workbook('2015排序.xlsx')
     table = data.sheets()[0]
     nrows = table.nrows
     ncols = table.ncols
