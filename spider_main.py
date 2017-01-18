@@ -77,7 +77,10 @@ class SpiderMain(object):
             r2=s.get(true_link)
             soup2= BeautifulSoup(r2.text, 'html.parser')
             refer=soup2.find_all('span',id="CR_HEADER_3")
-            refer_num=int(re.findall(r"\d+",refer[0].text)[0])
+            if re.findall(r"\d+",refer[0].text):
+                refer_num=int(re.findall(r"\d+",refer[0].text)[0])
+            else:
+                refer_num=int(re.findall(r'[\s\S]+?\{\sname:"CR_HEADER_3",\svalue:"(\d+)"\},[\s\S]+?]',r2.text)[0])
             flag=0
             error='no error'
         except Exception as e:
@@ -102,7 +105,10 @@ class SpiderMain(object):
                 r2=s.get(true_link)
                 soup2= BeautifulSoup(r2.text, 'html.parser')
                 refer=soup2.find_all('span',id="CR_HEADER_3")
-                refer_num=int(re.findall(r"\d+",refer[0].text)[0])
+                if re.findall(r"\d+",refer[0].text):
+                    refer_num=int(re.findall(r"\d+",refer[0].text)[0])
+                else:
+                    refer_num=int(re.findall(r'[\s\S]+?\{\sname:"CR_HEADER_3",\svalue:"(\d+)"\},[\s\S]+?]',r2.text)[0])
                 flag=0
                 error='no error'
 
