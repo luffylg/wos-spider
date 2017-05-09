@@ -1,6 +1,8 @@
 import re
+from threading import Thread
 
 import requests
+import time
 import xlrd
 from bs4 import BeautifulSoup
 
@@ -56,7 +58,7 @@ class SpiderMain(object):
             'dSet':1
 		}
 
-    def craw(self, root_url):
+    def craw(self, root_url,retry_num):
         try:
             s = requests.Session()
             r = s.post(root_url,data=self.form_data,headers=self.hearders)
@@ -85,45 +87,35 @@ class SpiderMain(object):
             error='no error'
         except Exception as e:
             # 出现错误，再次try，以提高结果成功率
-            try:
-                s = requests.Session()
-                r = s.post(root_url,data=self.form_data,headers=self.hearders)
-                soup = BeautifulSoup(r.text, 'html.parser')
-                result_article=soup.find_all('input', value="DocumentType_ARTICLE")
-                if result_article==[]:
-                    article_num=0
-                else:
-                    article_num=int(re.findall(r"\d+",result_article[0].text.replace(',',''))[0])
-                result_review=soup.find_all('input', value="DocumentType_REVIEW")
-                if result_review==[]:
-                    review_num=0
-                else:
-                    review_num=int(re.findall(r"\d+",result_review[0].text.replace(',',''))[0])
-                a_and_r=article_num+review_num
-                report_link=soup.find('a', alt="View Citation Report")
-                true_link="https://apps.webofknowledge.com"+report_link['href']
-                r2=s.get(true_link)
-                soup2= BeautifulSoup(r2.text, 'html.parser')
-                refer=soup2.find_all('span',id="CR_HEADER_3")
-                if re.findall(r"\d+",refer[0].text):
-                    refer_num=int(re.findall(r"\d+",refer[0].text)[0])
-                else:
-                    refer_num=int(re.findall(r'[\s\S]+?\{\sname:"CR_HEADER_3",\svalue:"(\d+)"\},[\s\S]+?]',r2.text)[0])
-                flag=0
-                error='no error'
-
-            except Exception as e:
+            if retry_num==0:
                 print(e)
                 a_and_r=0
                 refer_num=0
                 flag=1
                 error=str(e)
+                return a_and_r, refer_num,flag,error
+            time.sleep(1)
+            return self.craw(root_url,retry_num-1)
         return a_and_r, refer_num,flag,error
 
     def delete_history(self):
         murl='https://apps.webofknowledge.com/WOS_CombineSearches.do'
         s = requests.Session()
         s.post(murl,data=self.form_data2,headers=self.hearders)
+
+
+class MyThread(Thread):
+    def __init__(self, sid,kanming,i):
+        Thread.__init__(self)
+        self.row=i
+        self.sid = sid
+        self.kanming=kanming
+
+    def run(self):
+        self.ar,self.ref,self.fl,self.er = SpiderMain(self.sid,self.kanming).craw(root_url,2)
+
+    def get_result(self):
+        return self.ar,self.ref,self.fl,self.er,self.kanming,self.row
 
 
 if __name__=="__main__":
@@ -134,30 +126,54 @@ if __name__=="__main__":
     s=requests.get(root)
     sid=re.findall(r'SID=\w+&',s.url)[0].replace('SID=','').replace('&','')
 
-    data = xlrd.open_workbook('2015排序.xlsx')
+    data = xlrd.open_workbook('2016年影响因子.xlsx')
     table = data.sheets()[0]
     nrows = table.nrows
     ncols = table.ncols
     ctype = 1
     xf = 0
-
-    for i in range(1,nrows):
+    threads=[]
+    threadnum=5
+    for i in range(1370,nrows):
         if i%100==0:
             # 每一百次更换sid
             s=requests.get(root)
             sid=re.findall(r'SID=\w+&',s.url)[0].replace('SID=','').replace('&','')
-        csv=open('res.csv','a')
-        fail=open('fail.txt','a')
-        kanming=table.cell(i,2).value
-        obj_spider = SpiderMain(sid,kanming)
-        ar,ref,fl,er=obj_spider.craw(root_url)
-        csv.write(str(i+1)+","+kanming+','+str(ar)+','+str(ref)+'\n')
-        if fl==0:
-            print('cell'+str(i+1)+' '+kanming+' finished')
-        else:
-            print('cell'+str(i+1)+' '+kanming+' failed'+' '+er)
-            fail.write(str(i+1)+' '+kanming+' failed'+' '+er+'\n')
-        csv.close()
-        fail.close()
+        kanming=table.cell(i,1).value
+
+        t=MyThread(sid,kanming,i)
+        threads.append(t)
+        if i % threadnum == 0 or i == nrows-1:
+            for t in threads:
+                try:
+                    t.setDaemon(True)
+                    t.start()
+                except requests.exceptions.ReadTimeout:
+                    continue
+            for t in threads:
+                t.join()
+            for t in threads:
+                ar,ref,fl,er,kan,row = t.get_result()
+                csv=open('res.csv','a')
+                fail=open('fail.txt','a')
+                csv.write(str(row+1)+","+kan+','+str(ar)+','+str(ref)+'\n')
+                if fl==0:
+                    print('cell'+str(row+1)+' '+kan+' finished')
+                else:
+                    print('cell'+str(row+1)+' '+kan+' failed'+' '+er)
+                    fail.write(str(row+1)+' '+kan+' failed'+' '+er+'\n')
+                csv.close()
+                fail.close()
+            threads=[]
+        # obj_spider = SpiderMain(sid,kanming)
+        # ar,ref,fl,er=obj_spider.craw(root_url)
+        # csv.write(str(i+1)+","+kanming+','+str(ar)+','+str(ref)+'\n')
+        # if fl==0:
+        #     print('cell'+str(i+1)+' '+kanming+' finished')
+        # else:
+        #     print('cell'+str(i+1)+' '+kanming+' failed'+' '+er)
+        #     fail.write(str(i+1)+' '+kanming+' failed'+' '+er+'\n')
+        # csv.close()
+        # fail.close()
         #obj_spider.delete_history()
         # 更换sid后不必删除历史记录
