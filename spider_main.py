@@ -30,7 +30,7 @@ class SpiderMain(object):
             'value(select1)': 'SO',
             'value(hidInput1)': '',
             'value(bool_1_2)': 'AND',
-            'value(input2)': '2013-2014',
+            'value(input2)': '2014-2015',
             'value(select2)': 'PY',
             'value(hidInput2)': '',
             'limitStatus': 'collapsed',
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     s = requests.get(root)
     sid = re.findall(r'SID=\w+&', s.url)[0].replace('SID=', '').replace('&', '')
 
-    data = xlrd.open_workbook('2016年影响因子.xlsx')
+    data = xlrd.open_workbook('2017年影响因子预测2.xlsx')
     table = data.sheets()[0]
     nrows = table.nrows
     ncols = table.ncols
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     threads = []
     threadnum = 5
     d = Manager().dict()
-    for i in range(1417, nrows):
+    for i in range(1, nrows):
         if i % 100 == 0:
             # 每一百次更换sid
             s = requests.get(root)
